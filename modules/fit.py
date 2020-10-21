@@ -61,9 +61,9 @@ def bin_datasets(
     valiset = sc.woebin_ply(data.loc[begin_valid:end_valid,binned_feat+[tgt]].dropna(), bins)
     testset = sc.woebin_ply(data.loc[begin_test:end_test,binned_feat+[tgt]].dropna(), bins)
 
-    print(dataset.index.min(),dataset.index.max())
-    print(valiset.index.min(),valiset.index.max())
-    print(testset.index.min(),testset.index.max())
+    logging.info(f"Training Dataset {dataset.index.min()} {dataset.index.max()}")
+    logging.info(f"Validation Dataset {valiset.index.min()} {valiset.index.max()}")
+    logging.info(f"Test Dataset {testset.index.min()} {testset.index.max()}")
 
     X_train = dataset.drop(columns=[tgt])
     X_valid = valiset.drop(columns=[tgt])
@@ -102,8 +102,17 @@ def mltrain_loop(
         bins = joblib.load(bfile)
 
         tgt = config['target']
-        offset_lst= config['offset_lst']
-        begin_training  = pd.Timestamp(config['begin_training'])
+        
+        cfg = config['begin_training']
+        logging.debug(f"Config begin_training: {cfg} of type {type(cfg)}")
+        if type(cfg) == list:
+            training_begins = [pd.Timestamp(x) for x in cfg]
+        else:
+            offset_lst= config['offset_lst']
+            offset_res= config['offset_res']
+            training_begins = [pd.Timestamp(cfg)+pd.DateOffset(**{offset_res: offset}) for offset in offset_lst]
+        logging.debug(f"List of Training Begins: {training_begins}")
+
         end_training    = pd.Timestamp(config['end_training'])
         begin_valid     = pd.Timestamp(config['begin_valid'])
         end_valid       = pd.Timestamp(config['end_valid'])
@@ -114,21 +123,22 @@ def mltrain_loop(
     mlist = list(models.keys())   
     random.shuffle(mlist)
     
-    logging.info(f"Fitting {len(mlist)} models: {mlist}")
+    logging.info(f"Fitting {len(mlist)} models for {len(training_begins)} training begin. Total: {len(mlist)*len(training_begins)}")
+    logging.debug(f"List of models {mlist}")
     # Always ensure DF are ordered
     binned_feat = list(bins.keys())
     binned_feat.sort()
     woe_feat = [x+'_woe' for x in binned_feat]
-           
-    for offset in offset_lst:
+    
+    cnt_begins = 1
+    for begin_training in training_begins:
 
-        _begin_training = begin_training+pd.DateOffset(months=offset)
         y_train,y_valid,y_test,X_train,X_valid,X_test ,dataset,valiset,testset = \
             bin_datasets(
                 data,
                 bins,
                 tgt,
-                begin_training = _begin_training,
+                begin_training = begin_training,
                 end_training = end_training,
                 begin_valid = begin_valid,
                 end_valid = end_valid,
@@ -136,27 +146,27 @@ def mltrain_loop(
                 end_test = end_test
                 )       
         
-        i=1
+        cnt_models=1
         for m in mlist:
 
             # Specify Output filenames
             Path('models/').mkdir(parents=True, exist_ok=True)
-            model_fname = "models/{}_{}.dat".format(m,_begin_training.strftime("%Y%m%d"))
+            model_fname = "models/{}_{}.dat".format(m,begin_training.strftime("%Y%m%d"))
             Path('metrics/').mkdir(parents=True, exist_ok=True)
-            metric_fname = "metrics/{}_{}.csv".format(m,_begin_training.strftime("%Y%m%d"))
+            metric_fname = "metrics/{}_{}.csv".format(m,begin_training.strftime("%Y%m%d"))
 
-            logging.info(f"Model {m}: Starting")
+            logging.debug(f"Model {m}: Starting")
 
             if os.path.isfile(model_fname):
-                logging.info(f"Model {m}: already exists.")
-
                 if refit_models == False:
-                    logging.info(f"Model {m}: No refitting. Finished {i}/{len(mlist)}")
-                    i = i+1
+                    logging.info(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Model {m} already exists. No refitting.")
+                    cnt_models = cnt_models+1
+                    if cnt_models == len(mlist):
+                        cnt_begins = cnt_begins + 1
                     continue
-                logging.info(f"Model {m}: Refit model")
+                logging.debug(f"Model {m}: Refit model")
             
-            logging.info(f"Model {m}: Fitting started")
+            logging.debug(f"Model {m}: Fitting started")
 
             model = models[m]['model']
             if 'fit_params' in models[m].keys():
@@ -168,25 +178,26 @@ def mltrain_loop(
 
             
             joblib.dump(model, model_fname)
-            logging.info(f"Model {m}: Fitting ended")
+            logging.debug(f"Model {m}: Fitting ended")
             
             
-            results = pd.DataFrame(columns=pd.MultiIndex.from_product([[_begin_training],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
+            results = pd.DataFrame(columns=pd.MultiIndex.from_product([[begin_training],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
 
-            results.loc[m,(_begin_training,'train','accuracy_score')]   = accuracy_score(y_train,model.predict(X_train[woe_feat]))
-            results.loc[m,(_begin_training,'train','roc_auc_score')]   = roc_auc_score(y_train,model.predict(X_train[woe_feat]))
+            results.loc[m,(begin_training,'train','accuracy_score')]   = accuracy_score(y_train,model.predict(X_train[woe_feat]))
+            results.loc[m,(begin_training,'train','roc_auc_score')]   = roc_auc_score(y_train,model.predict(X_train[woe_feat]))
             
-            results.loc[m,(_begin_training,'valid','accuracy_score')]   = accuracy_score(y_valid,model.predict(X_valid[woe_feat]))
-            results.loc[m,(_begin_training,'valid','roc_auc_score')]   = roc_auc_score(y_valid,model.predict(X_valid[woe_feat]))
+            results.loc[m,(begin_training,'valid','accuracy_score')]   = accuracy_score(y_valid,model.predict(X_valid[woe_feat]))
+            results.loc[m,(begin_training,'valid','roc_auc_score')]   = roc_auc_score(y_valid,model.predict(X_valid[woe_feat]))
 
-            results.loc[m,(_begin_training,'test','accuracy_score')]   = accuracy_score(y_test,model.predict(X_test[woe_feat]))
-            results.loc[m,(_begin_training,'test','roc_auc_score')]   = roc_auc_score(y_test,model.predict(X_test[woe_feat]))
+            results.loc[m,(begin_training,'test','accuracy_score')]   = accuracy_score(y_test,model.predict(X_test[woe_feat]))
+            results.loc[m,(begin_training,'test','roc_auc_score')]   = roc_auc_score(y_test,model.predict(X_test[woe_feat]))
 
             results.to_csv(metric_fname)
-            logging.info(f"Model {m}: Metrics Calculated")
+            logging.debug(f"Model {m}: Metrics Calculated")
 
-            logging.info(f"Model {m}: Finished {i}/{len(mlist)}")
-            i=i+1
+            logging.info(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Model {m}")
+            cnt_models=cnt_models+1
+            cnt_begins = cnt_begins + 1
     
 
 
