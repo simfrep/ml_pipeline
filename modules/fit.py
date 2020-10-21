@@ -77,20 +77,40 @@ def bin_datasets(
 
 
 def mltrain_loop(
-    models,
-    data,
-    bins,
-    tgt,
-    offset_lst=[0,12,24,36],
-    begin_training = pd.Timestamp("2015-01-01 00:00"),
-    end_training = pd.Timestamp("2019-12-31 23:00"),
-    begin_valid = pd.Timestamp("2020-01-01 00:00"),
-    end_valid = pd.Timestamp("2020-03-31 23:00"),
-    begin_test = pd.Timestamp("2020-04-01 00:00"),
-    end_test = pd.Timestamp("2020-06-15 23:00"),
-    refit_models=False
+    config = None,
+    refit_models=False,
+    **kwargs
 ):
-    
+
+    if config is None:
+        logging.info("No Config file provided")
+    else:
+        logging.info("Config file provided")
+        models = model_config(m_dict=config['models'])
+
+        datafile = config['dpath']+config['dvarsel']
+        if os.path.isfile(datafile):
+            logging.info(f"Preprocessed Datafile found {datafile}")
+            
+        else:
+            datafile = config['dpath']+config['data']
+            logging.info(f"No Preprocessed Datafile found. Default to {datafile}")
+
+        data = pd.read_parquet(datafile)
+
+        bfile = config['dpath']+config['dbins']
+        bins = joblib.load(bfile)
+
+        tgt = config['target']
+        offset_lst= config['offset_lst']
+        begin_training  = pd.Timestamp(config['begin_training'])
+        end_training    = pd.Timestamp(config['end_training'])
+        begin_valid     = pd.Timestamp(config['begin_valid'])
+        end_valid       = pd.Timestamp(config['end_valid'])
+        begin_test      = pd.Timestamp(config['begin_test'])
+        end_test        = pd.Timestamp(config['end_test'])     
+
+        
     mlist = list(models.keys())   
     random.shuffle(mlist)
     

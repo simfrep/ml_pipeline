@@ -7,7 +7,18 @@ import logging
 
 #logging.basicConfig(level=logging.DEBUG)
 
-def iv_varsel(data,bads,tgt,dpath,dvarsel):
+def iv_varsel(config = None, **kwargs):
+
+    if config is None:
+        logging.info("No Config file provided")
+    else:
+        logging.info("Config file provided")
+        datafile = config['dpath']+config['data']
+        data = pd.read_parquet(datafile)
+        bads = config['bads']
+        tgt = config['target']
+        dpath = config['dpath']
+        dvarsel = config['dvarsel']
 
     collst =list(data.columns)
     #logging.debug(collst)
@@ -27,7 +38,27 @@ def iv_varsel(data,bads,tgt,dpath,dvarsel):
         outfile = dpath+dvarsel+_suffix
     data.to_parquet(outfile)
 
-def woe_bins(data, tgt, bads, dpath, dbins, ppath):
+def woe_bins(config = None, **kwargs):
+
+    if config is None:
+        logging.info("No Config file provided")
+    else:
+        logging.info("Config file provided")
+
+        datafile = config['dpath']+config['dvarsel']
+        if os.path.isfile(datafile):
+            logging.info(f"Preprocessed Datafile found {datafile}")
+            
+        else:
+            datafile = config['dpath']+config['data']
+            logging.info(f"No Preprocessed Datafile found. Default to {datafile}")
+
+        data = pd.read_parquet(datafile)
+        bads = config['bads']
+        tgt = config['target']
+        dpath = config['dpath']
+        dbins = config['dbins']
+        ppath = config['ppath']
     
     collst =list(data.columns)
     feat = sorted(list(set(collst)-set(bads)))
