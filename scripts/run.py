@@ -14,12 +14,12 @@ from binning import iv_varsel, woe_bins
 from fit import model_config, mltrain_loop
 
 # Load Config
-c = yaml.load(open('conf.yaml','r'),Loader=yaml.FullLoader)
+c = yaml.load(open('msft.yaml','r'),Loader=yaml.FullLoader)
 
 data = pd.read_parquet(c['data'])
 
-rerun_varsel = False
-rerun_binning = False
+rerun_varsel = True
+rerun_binning = True
 refit_models = False
 
 if os.path.isfile(c['dpath']+c['dvarsel']):
