@@ -1,0 +1,6 @@
+modules/__pycache__/
+scripts/.ipynb_checkpoints/
+scripts/data/
+scripts/metrics/
+scripts/models/
+scripts/plot_bins/
