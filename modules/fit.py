@@ -118,7 +118,6 @@ def mltrain_loop(
         end_valid       = pd.Timestamp(config['end_valid'])
         begin_test      = pd.Timestamp(config['begin_test'])
         end_test        = pd.Timestamp(config['end_test'])     
-
         
     mlist = list(models.keys())   
     random.shuffle(mlist)
@@ -200,30 +199,26 @@ def mltrain_loop(
             cnt_begins = cnt_begins + 1
     
 
+def extract_best_model(metric='accuracy_score',ds='valid'):
+    results=pd.DataFrame()
+    for file in os.listdir('metrics'):
+        #print(file)
+        _r = pd.read_csv(f"metrics/{file}",header=[0,1,2],index_col=[0],parse_dates=True)
+        results = pd.concat([results,_r.stack(level=0)],axis=0)
 
-def extract_best_model(results, ds = 'valid',metric='accuracy_score'):
+        results.index.set_names(['model', 'begin'],inplace=True)
 
-    r2 = results.loc[:,(slice(None),ds,metric)].unstack()
+        res = results[(ds,metric)].reset_index()
 
-    bestmodel = pd.DataFrame()
-    for m in set(r2.index.get_level_values(0)):
-        bestmodel_begin = None
-        bestmodel_acc = None
-        for i,x in pd.DataFrame(r2.loc[m]).reset_index().iterrows():
-            if bestmodel_begin is None:
-                bestmodel_begin = x['level_2']
-                bestmodel_acc = x[0]
-            if x[0] > bestmodel_acc:
-                bestmodel_begin = x['level_2']
-                bestmodel_acc = x[0]
+    ilst = []
+    for group in res.groupby('model'):
+        #display(group[1])
+        imax = group[1][(ds,metric)].idxmax()
+        #print(imax)
+        ilst.append(imax)
 
-        bestmodel.loc[m,'begin'] = bestmodel_begin
-        bestmodel.loc[m,metric] = bestmodel_acc
-        #print(m,bestmodel_begin,bestmodel_acc)
-    #bestmodel
+    bestmodel = res.loc[ilst]
+    bestmodel.columns = ['model','begin',metric]
+    bestmodel['model_fname'] = [f"models/{m}_{pd.Timestamp(b).strftime('%Y%m%d')}.dat" for m,b in zip(bestmodel.model,bestmodel.begin)]
 
-    _r3 = bestmodel.reset_index().sort_values(by=metric, ascending=False)
-
-    for i,x in _r3.iterrows():
-        _r3.loc[i,'model_fname'] = "models/{}_{}.dat".format(x['index'],x['begin'].strftime("%Y%m%d"))
-    return _r3
+    return bestmodel.sort_values(by=metric,ascending=False)
