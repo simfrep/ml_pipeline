@@ -14,14 +14,13 @@ from pathlib import Path
 import random
 import importlib
 
-import binning
-from util import func_from_string, get_feat, get_data
+from .util import func_from_string, get_feat, get_data
 
-class MLPipeline(binning.Binning):
+class Fitting():
 
     def __init__(
         self,
-        config
+        config = None
     ):
         self.config = config
 

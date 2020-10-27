@@ -1,4 +1,4 @@
-modules/__pycache__/
+mlpipeline/__pycache__/
 examples/.ipynb_checkpoints/
 examples/data/
 examples/metrics/
