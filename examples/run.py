@@ -26,22 +26,11 @@ if os.path.isfile(c['dpath']+c['dvarsel']):
     logging.info('Variable Selection dataset already exists')
     if rerun_varsel:
         logging.info('Variable Selection redone')
-        iv_varsel(
-            data,
-            c['bads'],
-            c['target'],
-            c['dpath'],
-            c['dvarsel'],
-        )
+        iv_varsel(config=c)
+
 else:
     logging.info('Variable Selection dataset not found. Start Variable Selection')
-    iv_varsel(
-        data,
-        c['bads'],
-        c['target'],
-        c['dpath'],
-        c['dvarsel'],
-    )
+    iv_varsel(config=c)
 
 
 if os.path.isfile(c['dpath']+c['dbins']):
@@ -49,25 +38,11 @@ if os.path.isfile(c['dpath']+c['dbins']):
     if rerun_binning:
         logging.info('Woe Binning redone')
         data = pd.read_parquet(c['dpath']+c['dvarsel'])
-        woe_bins(
-            data,
-            c['target'],
-            c['bads'],
-            c['dpath'],
-            c['dbins'],
-            c['ppath'],
-        )
+        woe_bins(config=c)
 else:
     logging.info('Woe Binning dataset not found. Start Woe Binning')
     data = pd.read_parquet(c['dpath']+c['dvarsel'])
-    woe_bins(
-        data,
-        c['target'],
-        c['bads'],
-        c['dpath'],
-        c['dbins'],
-        c['ppath'],
-    )
+    woe_bins(config=c)
 
 # C
 models = model_config(m_dict=c['models'])

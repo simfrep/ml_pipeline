@@ -26,7 +26,7 @@ bads:
   ]
 price_open: 'AdjClose'
 price_close: 'AdjClose_s1'
-begin_training: 2009-08-04
+begin_training: [2009-08-04, 2012-01-01,2015-01-01,2016-01-01]
 end_training: 2017-12-31
 begin_valid: 2018-01-01
 end_valid: 2018-12-31
@@ -35,19 +35,6 @@ end_test: 2020-09-30
 offset_lst: [0,48]
 offset_res: 'months'
 
-rerun_varsel: False
-rerun_binning: False
-refit_models: True
-use_binning: False # Allowed: True, False, Both
-
-# Optionally Run this function in a pipeline before model is fit
-# If use_binning is True no preprocessing is done
-preprocessing: 
-  sklearn.preprocessing.RobustScaler:
-  sklearn.preprocessing.StandardScaler:
-  optbinning.BinningProcess:
-
-# Last model to create prediction
 models:
   sklearn.tree.DecisionTreeClassifier:
     criterion: ['gini']
