@@ -66,7 +66,7 @@ class Binning():
             tgt = self.config['target']
             dpath = self.config['dpath']
             dbins = self.config['dbins']
-            ppath = self.config['ppath']
+            ppath = self.config['mpath']+self.config['ppath']
         
         collst =list(data.columns)
         feat = sorted(list(set(collst)-set(bads)))

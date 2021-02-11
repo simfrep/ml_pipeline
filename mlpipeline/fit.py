@@ -173,10 +173,13 @@ class Fitting():
             for m in mlist:
 
                 # Specify Output filenames
-                Path('models/').mkdir(parents=True, exist_ok=True)
-                model_fname = "models/{}_{}.dat".format(m,begin_training.strftime("%Y%m%d"))
-                Path('metrics/').mkdir(parents=True, exist_ok=True)
-                metric_fname = "metrics/{}_{}.csv".format(m,begin_training.strftime("%Y%m%d"))
+                modelpath = self.config['mpath']+'models/'
+                metricpath = self.config['mpath']+'metrics/'
+                Path(modelpath).mkdir(parents=True, exist_ok=True)
+                Path(metricpath).mkdir(parents=True, exist_ok=True)
+                beginstr = begin_training.strftime("%Y%m%d")
+                model_fname = f"{modelpath}{m}_{beginstr}.dat"
+                metric_fname = f"{metricpath}{m}_{beginstr}.csv"
 
                 logging.debug(f"Model {m}: Starting")
 
@@ -221,3 +224,5 @@ class Fitting():
                 logging.info(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Model {m}")
                 cnt_models=cnt_models+1
             cnt_begins = cnt_begins + 1
+
+            
