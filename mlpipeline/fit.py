@@ -16,7 +16,7 @@ import importlib
 
 from .util import func_from_string, get_feat, get_data
 
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ProcessPoolExecutor, as_completed
 
 class Fitting():
 
@@ -172,7 +172,7 @@ class Fitting():
                     )
 
             # Create pools for parallel execution
-            pool = ThreadPoolExecutor(self.config['parallel_threads'])
+            pool = ProcessPoolExecutor(self.config['parallel_threads'])
 
             # This list contains all functions that are executed
             futures = []
