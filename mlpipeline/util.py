@@ -43,9 +43,9 @@ def extract_best_model(config,metric='accuracy_score',ds='valid'):
         _r = pd.read_csv(f"{metricpath}{file}",header=[0,1,2],index_col=[0],parse_dates=True)
         results = pd.concat([results,_r.stack(level=0)],axis=0)
 
-        results.index.set_names(['model', 'begin'],inplace=True)
+            results.index.set_names(['model', 'begin'],inplace=True)
 
-        res = results[(ds,metric)].reset_index()
+            res = results[(ds,metric)].reset_index()
 
     ilst = []
     for group in res.groupby('model'):
