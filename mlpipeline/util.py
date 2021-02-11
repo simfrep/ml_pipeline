@@ -34,11 +34,13 @@ def get_data(config):
     return pd.read_parquet(datafile)
 
 
-def extract_best_model(metric='accuracy_score',ds='valid'):
+def extract_best_model(config,metric='accuracy_score',ds='valid'):
+    modelpath = config['mpath']+'models/'
+    metricpath = config['mpath']+'metrics/'
     results=pd.DataFrame()
-    for file in os.listdir('metrics'):
+    for file in os.listdir(metricpath):
         #print(file)
-        _r = pd.read_csv(f"metrics/{file}",header=[0,1,2],index_col=[0],parse_dates=True)
+        _r = pd.read_csv(f"{metricpath}{file}",header=[0,1,2],index_col=[0],parse_dates=True)
         results = pd.concat([results,_r.stack(level=0)],axis=0)
 
         results.index.set_names(['model', 'begin'],inplace=True)
@@ -54,6 +56,6 @@ def extract_best_model(metric='accuracy_score',ds='valid'):
 
     bestmodel = res.loc[ilst]
     bestmodel.columns = ['model','begin',metric]
-    bestmodel['model_fname'] = [f"models/{m}_{pd.Timestamp(b).strftime('%Y%m%d')}.dat" for m,b in zip(bestmodel.model,bestmodel.begin)]
+    bestmodel['model_fname'] = [f"{modelpath}{m}_{pd.Timestamp(b).strftime('%Y%m%d')}.dat" for m,b in zip(bestmodel.model,bestmodel.begin)]
 
     return bestmodel.sort_values(by=metric,ascending=False)
