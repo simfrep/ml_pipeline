@@ -16,6 +16,8 @@ import importlib
 
 from .util import func_from_string, get_feat, get_data
 
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
 class Fitting():
 
     def __init__(
@@ -167,62 +169,72 @@ class Fitting():
                     end_valid = end_valid,
                     begin_test = begin_test,
                     end_test = end_test
-                    )       
+                    )
+
+            # Create pools for parallel execution
+            pool = ThreadPoolExecutor(self.config['parallel_threads'])
+
+            # This list contains all functions that are executed
+            futures = []
+            cnt_models = 0
+            for x in mlist:
+                futures.append(pool.submit(self.mfit, x,models,begin_training,X_train,y_train,X_valid,y_valid,X_test,y_test))
+
+            # This loop ensures that we wait until all models are fitted
             
-            cnt_models=1
-            for m in mlist:
-
-                # Specify Output filenames
-                modelpath = self.config['mpath']+'models/'
-                metricpath = self.config['mpath']+'metrics/'
-                Path(modelpath).mkdir(parents=True, exist_ok=True)
-                Path(metricpath).mkdir(parents=True, exist_ok=True)
-                beginstr = begin_training.strftime("%Y%m%d")
-                model_fname = f"{modelpath}{m}_{beginstr}.dat"
-                metric_fname = f"{metricpath}{m}_{beginstr}.csv"
-
-                logging.debug(f"Model {m}: Starting")
-
-                if os.path.isfile(model_fname):
-                    if refit_models == False:
-                        logging.info(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Model {m} already exists. No refitting.")
-                        cnt_models = cnt_models+1
-                        if cnt_models == len(mlist):
-                            cnt_begins = cnt_begins + 1
-                        continue
-                    logging.debug(f"Model {m}: Refit model")
-                
-                logging.debug(f"Model {m}: Fitting started")
-
-                model = models[m]['model']
-
-                if 'fit_params' in models[m].keys():
-                    fit_params = models[m]['fit_params']
-                    fit_params['eval_set'] = [(X_valid,y_valid)]
-                    model.fit(X_train,y_train,**fit_params)
-                else:
-                    model.fit(X_train,y_train)
-                
-                joblib.dump(model, model_fname)
-                logging.debug(f"Model {m}: Fitting ended")
-                
-                
-                results = pd.DataFrame(columns=pd.MultiIndex.from_product([[begin_training],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
-
-                results.loc[m,(begin_training,'train','accuracy_score')]   = accuracy_score(y_train,model.predict(X_train))
-                results.loc[m,(begin_training,'train','roc_auc_score')]   = roc_auc_score(y_train,model.predict(X_train))
-                
-                results.loc[m,(begin_training,'valid','accuracy_score')]   = accuracy_score(y_valid,model.predict(X_valid))
-                results.loc[m,(begin_training,'valid','roc_auc_score')]   = roc_auc_score(y_valid,model.predict(X_valid))
-
-                results.loc[m,(begin_training,'test','accuracy_score')]   = accuracy_score(y_test,model.predict(X_test))
-                results.loc[m,(begin_training,'test','roc_auc_score')]   = roc_auc_score(y_test,model.predict(X_test))
-
-                results.to_csv(metric_fname)
-                logging.debug(f"Model {m}: Metrics Calculated")
-
-                logging.info(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Model {m}")
-                cnt_models=cnt_models+1
-            cnt_begins = cnt_begins + 1
-
+            for x in as_completed(futures):
+                cnt_models += 1
+                logging.info(x.result())
+                logging.info(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Models")
             
+            logging.info(f"Fitting done for {begin_training} training begin.")
+            cnt_begins += 1
+        logging.info(f"Fitting completed.")
+
+    def mfit(self,m,models,begin_training,X_train,y_train,X_valid,y_valid,X_test,y_test):
+
+        # Specify Output filenames
+        modelpath = self.config['mpath']+'models/'
+        metricpath = self.config['mpath']+'metrics/'
+        Path(modelpath).mkdir(parents=True, exist_ok=True)
+        Path(metricpath).mkdir(parents=True, exist_ok=True)
+        beginstr = begin_training.strftime("%Y%m%d")
+        model_fname = f"{modelpath}{m}_{beginstr}.dat"
+        metric_fname = f"{metricpath}{m}_{beginstr}.csv"
+
+        logging.debug(f"Model {m}: Starting")
+
+        if os.path.isfile(model_fname):
+            if self.config['refit_models'] == False:
+                return f"No refitting. Model {m} already exists. "
+            logging.debug(f"Model {m}: Refit model")
+        
+        logging.debug(f"Model {m}: Fitting started")
+
+        model = models[m]['model']
+
+        if 'fit_params' in models[m].keys():
+            fit_params = models[m]['fit_params']
+            fit_params['eval_set'] = [(X_valid,y_valid)]
+            model.fit(X_train,y_train,**fit_params)
+        else:
+            model.fit(X_train,y_train)
+        
+        joblib.dump(model, model_fname)
+        logging.debug(f"Model {m}: Fitting ended")
+        
+        results = pd.DataFrame(columns=pd.MultiIndex.from_product([[begin_training],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
+
+        results.loc[m,(begin_training,'train','accuracy_score')]   = accuracy_score(y_train,model.predict(X_train))
+        results.loc[m,(begin_training,'train','roc_auc_score')]   = roc_auc_score(y_train,model.predict(X_train))
+        
+        results.loc[m,(begin_training,'valid','accuracy_score')]   = accuracy_score(y_valid,model.predict(X_valid))
+        results.loc[m,(begin_training,'valid','roc_auc_score')]   = roc_auc_score(y_valid,model.predict(X_valid))
+
+        results.loc[m,(begin_training,'test','accuracy_score')]   = accuracy_score(y_test,model.predict(X_test))
+        results.loc[m,(begin_training,'test','roc_auc_score')]   = roc_auc_score(y_test,model.predict(X_test))
+
+        results.to_csv(metric_fname)
+        logging.debug(f"Model {m}: Metrics Calculated")
+
+        return f"Completed Model {m}"        
