@@ -20,7 +20,10 @@ def plots_1mw(
     descr_model='rf',
     price_open='EXAA',
     price_close='EPEX',
-    naive_sign =1):
+    naive_sign =1,
+    resolution = 1,
+    sign_flip=1,
+    modeltype="classification"):
     
     results= results.drop(columns=results.filter(regex='xgb|naive|coin').columns)
     
@@ -30,34 +33,39 @@ def plots_1mw(
     
     for key in cl_models.keys():
         results[key+'_results'] = cl_models[key][0].predict(cl_models[key][ix_dataset])
-        results.loc[results[key+'_results'] == True,key+'_sign'] = 1
-        results.loc[results[key+'_results'] == False,key+'_sign'] = -1
-        
+        if modeltype == 'regression':
+            results.loc[results[key+'_results'] >=0,key+'_sign'] = 1 * sign_flip
+            results.loc[results[key+'_results'] < 0,key+'_sign'] = -1 * sign_flip
+        else:
+            results.loc[results[key+'_results'] == True,key+'_sign'] = 1 * sign_flip
+            results.loc[results[key+'_results'] == False,key+'_sign'] = -1 * sign_flip
+
     for key in prob_models.keys():
         results[key+'_results'] =  prob_models[key][0].predict(prob_models[key][ix_dataset])
         results.loc[results[key+'_results'] <= 0.5,key+'_sign'] = -1
         results.loc[results[key+'_results'] >= 0.5,key+'_sign'] = 1
     
     for key in list(cl_models.keys())+list(prob_models.keys())+['naive','coin']:        
-        results[key+"_profit"] = (results[price_close]-results[price_open])*(results[key+'_sign']) 
+        results[key+"_profit"] = (results[price_close]-results[price_open])*(results[key+'_sign']) * resolution
         results[key+"_profit_cum"] = results[key+"_profit"].cumsum()   
     
     for m in list(cl_models.keys())+list(prob_models.keys())+['naive','coin']:
         profvar=m+'_profit'
         signvar=m+'_sign'
         txt_profitabs = np.round(results[profvar].sum())
-        txt_profitpct = round(100*results[profvar].sum()/abs(results[price_open]-results[price_close]).sum(),2)
-        txt_profitmax = round(abs(results[price_open]-results[price_close]).sum(),2)
-        txt_profitmwh = round(results[profvar].sum()/results[signvar].abs().sum(),2)
+        txt_profitpct = round(100*results[profvar].sum()/abs((results[price_open]-results[price_close])* resolution).sum(),2)
+        txt_longpct = round(100*(results[key+'_sign']>0).sum()/results[key+'_sign'].abs().sum(),2)
+        txt_profitmax = round(abs((results[price_open]-results[price_close]) * resolution).sum(),2)
+        txt_profitmwh = round(results[profvar].sum()/(results[signvar].abs().sum()* resolution),2)
         f_trade = results[signvar] != 0
         f_correct = results[signvar]==np.sign(results.spread_sign)
         txt_corspread = round(100*len(results.loc[f_trade & f_correct])/len(results.loc[(f_trade)]),1)
-        text = "{} Profit: {} EUR ({}% of max. {} EUR) Profit/MWh [€]: {} Accuracy: {}%".format(
+        text = "{} Profit: {} EUR ({}% of max. {} EUR) Profit/MWh [€]: {} Accuracy: {}% (Longpct: {})".format(
         m,
         txt_profitabs,
         txt_profitpct,
         txt_profitmax,
-        txt_profitmwh,txt_corspread)
+        txt_profitmwh,txt_corspread,txt_longpct)
     
         ax.plot(results.index,results[m+'_profit_cum'], label = text)
     

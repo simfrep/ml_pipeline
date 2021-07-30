@@ -4,7 +4,7 @@ import os
 import scorecardpy as sc
 import joblib
 import logging
-from sklearn.metrics import accuracy_score,roc_auc_score
+from sklearn.metrics import accuracy_score,roc_auc_score,mean_squared_error
 
 from sklearn.model_selection import ParameterGrid
 from sklearn.pipeline import Pipeline
@@ -223,18 +223,27 @@ class Fitting():
         joblib.dump(model, model_fname)
         logging.debug(f"Model {m}: Fitting ended")
         
-        results = pd.DataFrame(columns=pd.MultiIndex.from_product([[begin_training],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
+        if self.config['modeltype'] == 'regression':
+            results = pd.DataFrame(columns=pd.MultiIndex.from_product([[begin_training],['train', 'valid','test'], ['mean_squared_error']]))
 
-        results.loc[m,(begin_training,'train','accuracy_score')]   = accuracy_score(y_train,model.predict(X_train))
-        results.loc[m,(begin_training,'train','roc_auc_score')]   = roc_auc_score(y_train,model.predict(X_train))
-        
-        results.loc[m,(begin_training,'valid','accuracy_score')]   = accuracy_score(y_valid,model.predict(X_valid))
-        results.loc[m,(begin_training,'valid','roc_auc_score')]   = roc_auc_score(y_valid,model.predict(X_valid))
+            results.loc[m,(begin_training,'train','mean_squared_error')]   = mean_squared_error(y_train,model.predict(X_train))
+            results.loc[m,(begin_training,'valid','mean_squared_error')]   = mean_squared_error(y_valid,model.predict(X_valid))
+            results.loc[m,(begin_training,'test','mean_squared_error')]   = mean_squared_error(y_test,model.predict(X_test))
 
-        results.loc[m,(begin_training,'test','accuracy_score')]   = accuracy_score(y_test,model.predict(X_test))
-        results.loc[m,(begin_training,'test','roc_auc_score')]   = roc_auc_score(y_test,model.predict(X_test))
+            results.to_csv(metric_fname)
+        else:
+            results = pd.DataFrame(columns=pd.MultiIndex.from_product([[begin_training],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
 
-        results.to_csv(metric_fname)
+            results.loc[m,(begin_training,'train','accuracy_score')]   = accuracy_score(y_train,model.predict(X_train))
+            results.loc[m,(begin_training,'train','roc_auc_score')]   = roc_auc_score(y_train,model.predict(X_train))
+
+            results.loc[m,(begin_training,'valid','accuracy_score')]   = accuracy_score(y_valid,model.predict(X_valid))
+            results.loc[m,(begin_training,'valid','roc_auc_score')]   = roc_auc_score(y_valid,model.predict(X_valid))
+
+            results.loc[m,(begin_training,'test','accuracy_score')]   = accuracy_score(y_test,model.predict(X_test))
+            results.loc[m,(begin_training,'test','roc_auc_score')]   = roc_auc_score(y_test,model.predict(X_test))
+
+            results.to_csv(metric_fname)
         logging.debug(f"Model {m}: Metrics Calculated")
 
         return f"Completed Model {m}"        
