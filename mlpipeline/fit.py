@@ -85,9 +85,9 @@ class Fitting():
         y_valid = valiset[tgt].values
         y_test  = testset[tgt].values
 
-        logging.info(f"Training Dataset {dataset.index.min()} {dataset.index.max()}")
-        logging.info(f"Validation Dataset {valiset.index.min()} {valiset.index.max()}")
-        logging.info(f"Test Dataset {testset.index.min()} {testset.index.max()}")
+        logging.debug(f"Training Dataset {dataset.index.min()} {dataset.index.max()}")
+        logging.debug(f"Validation Dataset {valiset.index.min()} {valiset.index.max()}")
+        logging.debug(f"Test Dataset {testset.index.min()} {testset.index.max()}")
 
         return y_train,y_valid,y_test,X_train,X_valid,X_test,dataset,valiset,testset
 
@@ -123,11 +123,12 @@ class Fitting():
             
         mlist = list(models.keys())   
         random.shuffle(mlist)
-        
-        logging.info(f"Fitting {len(mlist)} models for {len(training_begins)} training begin. Total: {len(mlist)*len(training_begins)}")
+        total_models = len(mlist)*len(training_begins)
+        logging.info(f"Fitting {len(mlist)} models for {len(training_begins)} training begins {training_begins}. Total: {total_models}")
         logging.debug(f"List of models {mlist}")
         
         cnt_begins = 1
+        cnt_totals = 0
         for begin_training in training_begins:
 
             y_train,y_valid,y_test,X_train,X_valid,X_test ,dataset,valiset,testset = \
@@ -153,12 +154,15 @@ class Fitting():
             
             for x in as_completed(futures):
                 cnt_models += 1
-                logging.info(x.result())
-                logging.info(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Models")
+                cnt_totals += 1
+                logging.debug(x.result())
+                logging.debug(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Models")
+                if (cnt_models % 10 == 0) or (cnt_models == len(mlist)):
+                    logging.info(f"Finished {cnt_totals} of {total_models} model fittings (Training Begin {cnt_begins}/{len(training_begins)} Model {cnt_models}/{len(mlist)})")
             
-            logging.info(f"Fitting done for {begin_training} training begin.")
+            logging.info(f"Finished training begin {begin_training}.")
             cnt_begins += 1
-        logging.info(f"Fitting completed.")
+        logging.info(f"Finished Model Fitting.")
 
     def mfit(self,m,models,begin_training,X_train,y_train,X_valid,y_valid,X_test,y_test):
 
