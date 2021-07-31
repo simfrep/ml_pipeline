@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import os
 import scorecardpy as sc
-import joblib
+import dill
 from sklearn.metrics import accuracy_score,roc_auc_score
 from sklearn.metrics import plot_confusion_matrix,plot_precision_recall_curve,plot_roc_curve
 

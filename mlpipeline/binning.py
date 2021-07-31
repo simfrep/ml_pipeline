@@ -1,6 +1,6 @@
 import scorecardpy as sc
 import pandas as pd
-import joblib
+import dill
 from pathlib import Path
 import os
 import logging
@@ -73,7 +73,8 @@ class Binning():
 
         data = data[feat+[tgt]]
         bins = sc.woebin(data, y=tgt)
-        joblib.dump(bins, dpath+dbins)
+        with open(dpath+dbins, "wb") as dill_file:
+            dill.dump(bins, dill_file)
 
         # Create and save plots
         plotlist = sc.woebin_plot(bins)

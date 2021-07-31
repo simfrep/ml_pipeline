@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import os
 import scorecardpy as sc
-import joblib
+import dill
 import logging
 from sklearn.metrics import accuracy_score,roc_auc_score,mean_squared_error
 
@@ -92,7 +92,7 @@ class Fitting():
 
         if use_binning:       
             bfile = self.config['dpath']+self.config['dbins']
-            bins = joblib.load(bfile)
+            bins = dill.load(bfile)
 
             # Always ensure DF are ordered
             binned_feat = list(bins.keys())
@@ -220,7 +220,8 @@ class Fitting():
         else:
             model.fit(X_train,y_train)
         
-        joblib.dump(model, model_fname)
+        with open(model_fname, "wb") as dill_file:
+            dill.dump(model, dill_file)
         logging.debug(f"Model {m}: Fitting ended")
         
         if self.config['modeltype'] == 'regression':
