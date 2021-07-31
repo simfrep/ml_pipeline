@@ -21,15 +21,8 @@ def get_feat(config):
 
 
 def get_data(config):
-    datafile = config['dpath']+config['dvarsel']
-    if os.path.isfile(datafile) & config['use_binning']:
-        logging.info(f"Preprocessed Datafile found {datafile}")
-    elif config['use_binning'] == False:
-        datafile = config['dpath']+config['data']
-        logging.info(f"Use Binning is False. Use {datafile}")    
-    else:
-        datafile = config['dpath']+config['data']
-        logging.info(f"No Preprocessed Datafile found. Default to {datafile}")
+    datafile = config['dpath']+config['data']
+    logging.debug(f"No Preprocessed Datafile found. Default to {datafile}")
 
     return pd.read_parquet(datafile)
 

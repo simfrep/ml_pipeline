@@ -1,7 +1,5 @@
 import pandas as pd
-import numpy as np
 import os
-import scorecardpy as sc
 import dill
 import logging
 from sklearn.metrics import accuracy_score,roc_auc_score,mean_squared_error
@@ -34,39 +32,26 @@ class Fitting():
 
         models = {}
 
-        if self.config['use_binning'] in [False, 'Both']:
-            for trans in preprocessing.keys():
-                trans_func = func_from_string(trans)
-                for key in m_dict.keys():
-                    para_lst = list(ParameterGrid(m_dict[key]))
-                    model_func = func_from_string(key)
-
-                    if trans_func.__name__ == 'BinningProcess':
-                        _models = {
-                            f"{trans_func.__name__}_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
-                                {'model':Pipeline([('transformation',trans_func(get_feat(self.config))),('model',model_func(**p))])} 
-                            for p in para_lst  
-                            }
-                    else:                    
-                        _models = {
-                            f"{trans_func.__name__}_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
-                                {'model':Pipeline([('transformation',trans_func()),('model',model_func(**p))])} 
-                            for p in para_lst  
-                            }
-                    models.update(_models)
-        
-        if self.config['use_binning'] in [True, 'Both']:
+        for trans in preprocessing.keys():
+            trans_func = func_from_string(trans)
             for key in m_dict.keys():
                 para_lst = list(ParameterGrid(m_dict[key]))
                 model_func = func_from_string(key)
-                _models = {
-                    f"woe_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
-                        {'model':Pipeline([('model',model_func(**p))])} 
-                    for p in para_lst  
-                    }
+
+                if trans_func.__name__ == 'BinningProcess':
+                    _models = {
+                        f"{trans_func.__name__}_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
+                            {'model':Pipeline([('transformation',trans_func(get_feat(self.config))),('model',model_func(**p))])} 
+                        for p in para_lst  
+                        }
+                else:                    
+                    _models = {
+                        f"{trans_func.__name__}_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
+                            {'model':Pipeline([('transformation',trans_func()),('model',model_func(**p))])} 
+                        for p in para_lst  
+                        }
                 models.update(_models)
-
-
+        
         return models
 
     def split_datasets(
@@ -83,30 +68,15 @@ class Fitting():
         """   
 
         data = get_data(self.config)
-        use_binning = self.config['use_binning']
         bads = self.config['bads']
         tgt = self.config['target']
         
         collst =list(data.columns)
         feat = sorted(list(set(collst)-set(bads)-set(tgt)))
 
-        if use_binning:       
-            bfile = self.config['dpath']+self.config['dbins']
-            bins = dill.load(bfile)
-
-            # Always ensure DF are ordered
-            binned_feat = list(bins.keys())
-            binned_feat.sort()
-            feat = [x+'_woe' for x in binned_feat]    
-            
-            dataset = sc.woebin_ply(data.loc[begin_training:end_training,binned_feat+[tgt]].dropna(), bins)
-            valiset = sc.woebin_ply(data.loc[begin_valid:end_valid,binned_feat+[tgt]].dropna(), bins)
-            testset = sc.woebin_ply(data.loc[begin_test:end_test,binned_feat+[tgt]].dropna(), bins)
-
-        else:
-            dataset = data.loc[begin_training:end_training,feat+[tgt]].dropna()
-            valiset = data.loc[begin_valid:end_valid,feat+[tgt]].dropna()
-            testset = data.loc[begin_test:end_test,feat+[tgt]].dropna()
+        dataset = data.loc[begin_training:end_training,feat+[tgt]].dropna()
+        valiset = data.loc[begin_valid:end_valid,feat+[tgt]].dropna()
+        testset = data.loc[begin_test:end_test,feat+[tgt]].dropna()
 
         X_train = dataset.drop(columns=[tgt])[feat]
         X_valid = valiset.drop(columns=[tgt])[feat]
@@ -124,7 +94,6 @@ class Fitting():
     def mltrain_loop(
         self,
         refit_models=False,
-        use_binning=False,
         **kwargs
     ):
 
