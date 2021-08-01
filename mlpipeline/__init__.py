@@ -1,4 +1,5 @@
 from .fit import Fitting
+from munch import munchify
 
 class MLPipeline(Fitting):
 
@@ -6,4 +7,4 @@ class MLPipeline(Fitting):
         self,
         config = None
     ):
-        self.config = config
+        self.config = munchify(config)
