@@ -1,81 +1,80 @@
-data: msft.parq
-dpath: 'data/'
-dbins: 'data_woe_bins.dat'
-ppath: 'plot_bins/'
-dvarsel: 'data_varsel.parq'
-target: 'target'
-bads: 
-  ['Ticker', 'SimFinId', #'Open', 'Low', 'High', 'Close', 'AdjClose',
-       #'Dividend', 'Volume', 'SharesOutstanding', 
-       'Tickerinc', 'SimFinIdinc',
-       'Currency', 'FiscalYear', 'FiscalPeriod', 'ReportDate', 'RestatedDate',
-       #'SharesBasic', 'SharesDiluted', 'Revenue', 'CostofRevenue',
-       #'GrossProfit', 'OperatingExpenses', 'SellingGeneral&Administrative',
-       #'Research&Development', 'OperatingIncomeLoss',
-       #'Non-OperatingIncomeLoss', 'PretaxIncomeLossAdj', 'PretaxIncomeLoss',
-       #'IncomeTaxExpenseBenefitNet', 'IncomeLossfromContinuingOperations',
-       #'NetIncome', 'NetIncomeCommon',
-        'PublishDate', 'AdjClose_s1', 'spread',
-       'target', 
-       #'weekday', 'dayofyear', 'month', 'spread_lag1', 'spread_lag2',
-       #'spread_lag3', 'spread_lag4', 'spread_lag5', 'spread_lag6',
-       #'spread_lag7', 'spread_lag8', 'spread_lag9', 'target_lag1',
-       #'target_lag2', 'target_lag3', 'target_lag4', 'target_lag5',
-       #'target_lag6', 'target_lag7', 'target_lag8', 'target_lag9',
-       #'Days_Since_Report'
-  ]
-price_open: 'AdjClose'
-price_close: 'AdjClose_s1'
-begin_training: 2009-08-04
-end_training: 2017-12-31
-begin_valid: 2018-01-01
-end_valid: 2018-12-31
-begin_test: 2019-01-01
-end_test: 2020-09-30
-offset_lst: [0,48]
-offset_res: 'months'
+data: 
+  inpfile: msft.parq
+  inppath: data
+  outpath: out
 
-rerun_varsel: False
-rerun_binning: False
+variables:
+  target: target
+  bads: ['Ticker', 'SimFinId', 
+       'Tickerinc', 'SimFinIdinc',
+       'Currency', 'FiscalYear', 
+       'FiscalPeriod', 'ReportDate', 
+       'RestatedDate', 'PublishDate', 
+       'AdjClose_s1', 'spread',
+       'target', 
+  ]
+  price_open: AdjClose
+  price_close: AdjClose_s1
+
+split:
+  time:
+    begin_training: 2009-08-04
+    begin_valid: 2018-01-01
+    begin_test: 2019-01-01
+    offset_lst: [0,24,48,72]
+    offset_res: 'months'
+# split: [0.7,0.2,0.1]
+
+modeltype: classification
 refit_models: True
-use_binning: False # Allowed: True, False, Both
+parallel_threads: 8
 
 # Optionally Run this function in a pipeline before model is fit
 # If use_binning is True no preprocessing is done
 preprocessing: 
   sklearn.preprocessing.RobustScaler:
-  sklearn.preprocessing.StandardScaler:
+  #sklearn.preprocessing.StandardScaler:
   optbinning.BinningProcess:
 
 # Last model to create prediction
 models:
-  sklearn.tree.DecisionTreeClassifier:
-    criterion: ['gini']
-    max_depth: [2,6,6,8,10]
-  sklearn.ensemble.RandomForestClassifier:
-    n_estimators: [500]  # [250,500,750,1000] 
-    max_depth: [2,6,6,8,10]
+  # sklearn.tree.DecisionTreeClassifier:
+  #   criterion: ['gini']
+  #   max_depth: [2,6,6,8,10]
+  # sklearn.ensemble.RandomForestClassifier:
+  #   n_estimators: [500]  # [250,500,750,1000] 
+  #   max_depth: [2,6,6,8,10]
   sklearn.linear_model.LogisticRegression:
     solver: ['saga']
-    penalty: ['l1', 'l2', 'elasticnet']
-    l1_ratio: [0,0.5,1]
-  sklearn.neural_network.MLPClassifier:
-    activation: ['logistic'] #['identity','logistic','tanh','relu']
-    solver: ['adam'] #['sgd','adam']
-    alpha: [0.0001] # [0.01, 0.0001]
-    learning_rate: ['constant'] #['constant', 'invscaling', 'adaptive']
+    penalty: ['l1', 'l2']
     max_iter: [1000]
-    hidden_layer_sizes:  
-        [ 
-          !!python/tuple [90,10], 
-          !!python/tuple [80,20], 
-          !!python/tuple [70,30], 
-          !!python/tuple [60,40], 
-          !!python/tuple [50,50]
-        ]
-  sklearn.svm.SVC:
-    probability: [True]
-    C: [0.5,1]
-    kernel: ['linear', 'poly', 'rbf', 'sigmoid']
-    gamma: ['scale', 'auto']
-    max_iter: [1000]
+  # sklearn.linear_model.LogisticRegression:
+  #   solver: ['saga']
+  #   penalty: ['elasticnet']
+  #   l1_ratio: [0,0.5,1]    
+  #   max_iter: [1000]
+  # sklearn.linear_model.RidgeClassifier:
+  #   alpha: [1,2,3,5,8]
+  # sklearn.linear_model.PassiveAggressiveClassifier:
+  #   C: [1,2,3,5,8]    
+    
+  # sklearn.neural_network.MLPClassifier:
+  #   activation: ['logistic'] #['identity','logistic','tanh','relu']
+  #   solver: ['adam'] #['sgd','adam']
+  #   alpha: [0.0001] # [0.01, 0.0001]
+  #   learning_rate: ['constant'] #['constant', 'invscaling', 'adaptive']
+  #   max_iter: [1000]
+  #   hidden_layer_sizes:  
+  #       [ 
+  #         !!python/tuple [90,10], 
+  #         !!python/tuple [80,20], 
+  #         !!python/tuple [70,30], 
+  #         !!python/tuple [60,40], 
+  #         !!python/tuple [50,50]
+  #       ]
+  # sklearn.svm.SVC:
+  #   probability: [True]
+  #   C: [0.5,1]
+  #   kernel: ['linear', 'poly', 'rbf', 'sigmoid']
+  #   gamma: ['scale', 'auto']
+    
