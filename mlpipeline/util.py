@@ -9,24 +9,6 @@ def func_from_string(key):
     mod = importlib.import_module(_mod)
     return getattr(mod, _fun)
 
-
-def get_feat(config):
-    data = get_data(config)
-    bads = config['bads']
-    tgt = config['target']
-    
-    collst =list(data.columns)
-    feat = sorted(list(set(collst)-set(bads)-set(tgt)))
-    return feat
-
-
-def get_data(config):
-    datafile = config['dpath']+config['data']
-    logging.debug(f"No Preprocessed Datafile found. Default to {datafile}")
-
-    return pd.read_parquet(datafile)
-
-
 def extract_best_model(config,metric='accuracy_score',ds='valid'):
     modelpath = config['mpath']+'models/'
     metricpath = config['mpath']+'metrics/'

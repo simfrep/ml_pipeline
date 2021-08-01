@@ -3,18 +3,14 @@ import os
 import dill
 import logging
 from sklearn.metrics import accuracy_score,roc_auc_score,mean_squared_error
-
 from sklearn.model_selection import ParameterGrid, train_test_split
 from sklearn.pipeline import Pipeline
-from pathlib import Path
-
-
-import random
-import importlib
-
-from .util import func_from_string, get_feat, get_data
-
 from concurrent.futures import ProcessPoolExecutor, as_completed
+from pathlib import Path
+import random
+
+from .util import func_from_string
+
 
 class Fitting():
 
@@ -41,7 +37,7 @@ class Fitting():
                 if trans_func.__name__ == 'BinningProcess':
                     _models = {
                         f"{trans_func.__name__}_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
-                            {'model':Pipeline([('transformation',trans_func(get_feat(self.config))),('model',model_func(**p))])} 
+                            {'model':Pipeline([('transformation',trans_func(self.feat)),('model',model_func(**p))])} 
                         for p in para_lst  
                         }
                 else:                    
@@ -64,22 +60,18 @@ class Fitting():
             Creates and returns all necessary Datasets for normal modellung and DMatrix elements for XGB
         """   
 
-        data = get_data(self.config)
-        bads = self.config.bads
-        tgt = self.config.target
-        
-        collst =list(data.columns)
-        feat = sorted(list(set(collst)-set(bads)-set(tgt)))
+        collst =self.feat+[self.target]
 
-        dataset = data.loc[begin_training:begin_valid,feat+[tgt]].dropna()
-        valiset = data.loc[begin_valid:begin_test,feat+[tgt]].dropna()
-        testset = data.loc[begin_test:,feat+[tgt]].dropna()
-        X_train = dataset.drop(columns=[tgt])[feat]
-        X_valid = valiset.drop(columns=[tgt])[feat]
-        X_test  = testset.drop(columns=[tgt])[feat]
-        y_train = dataset[tgt].values
-        y_valid = valiset[tgt].values
-        y_test  = testset[tgt].values
+        dataset = self.data.loc[begin_training:begin_valid,collst].dropna()
+        valiset = self.data.loc[begin_valid:begin_test,collst].dropna()
+        testset = self.data.loc[begin_test:,collst].dropna()
+        X_train = dataset[self.feat]
+        X_valid = valiset[self.feat]
+        X_test  = testset[self.feat]
+        y_train = dataset[self.target].values
+        y_valid = valiset[self.target].values
+        y_test  = testset[self.target].values
+
         logging.debug(f"Training Dataset {dataset.index.min()} {dataset.index.max()}")
         logging.debug(f"Validation Dataset {valiset.index.min()} {valiset.index.max()}")
         logging.debug(f"Test Dataset {testset.index.min()} {testset.index.max()}")
@@ -88,21 +80,14 @@ class Fitting():
 
     def split_datasets_byratio(
         self,split :list= [0.75,0.15,0.1]
-    ):        
-        data = get_data(self.config)
-        bads = self.config.bads
-        tgt = self.config.target
-        
-        collst =list(data.columns)
-        feat = sorted(list(set(collst)-set(bads)-set(tgt)))
-
+    ):               
         logging.info(f"Using Split: {split}")
         train_ratio = split[0]
         validation_ratio = split[1]
         test_ratio = split[2]
         # train is now 75% of the entire data set
         # the _junk suffix means that we drop that variable completely
-        X_train, _X, y_train, _y = train_test_split(data[feat], data[tgt], test_size=1 - train_ratio)
+        X_train, _X, y_train, _y = train_test_split(self.data[self.feat], self.data[self.target], test_size=1 - train_ratio)
         # test is now 10% of the initial data set
         # validation is now 15% of the initial data set
         X_valid, X_test, y_valid, y_test = train_test_split(_X, _y, test_size=test_ratio/(test_ratio + validation_ratio)) 
@@ -124,8 +109,6 @@ class Fitting():
         models = self.model_config()
         mlist = list(models.keys())   
         random.shuffle(mlist)
-
-        data = get_data(self.config)
 
         logging.debug(self.config)
         logging.debug(self.config.keys())
@@ -217,12 +200,13 @@ class Fitting():
     def mfit(self,m,models,trainingid,X_train,y_train,X_valid,y_valid,X_test,y_test):
 
         # Specify Output filenames
-        modelpath = self.config['mpath']+'models/'
-        metricpath = self.config['mpath']+'metrics/'
+        outpath = self.config.data.outpath
+        modelpath = f"{outpath}/models"
+        metricpath = f"{outpath}/metrics"
         Path(modelpath).mkdir(parents=True, exist_ok=True)
         Path(metricpath).mkdir(parents=True, exist_ok=True)
-        model_fname = f"{modelpath}{m}_{trainingid}.dat"
-        metric_fname = f"{metricpath}{m}_{trainingid}.csv"
+        model_fname = f"{modelpath}/{m}_{trainingid}.dat"
+        metric_fname = f"{metricpath}/{m}_{trainingid}.csv"
 
         logging.debug(f"Model {m}: Starting")
 
