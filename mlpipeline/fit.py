@@ -61,44 +61,45 @@ class Fitting():
         """   
 
         collst =self.feat+[self.target]
+        d = {}
+        d["dataset"] = self.data.loc[begin_training:begin_valid,collst].dropna()
+        d["valiset"] = self.data.loc[begin_valid:begin_test,collst].dropna()
+        d["testset"] = self.data.loc[begin_test:,collst].dropna()
+        d["X_train"] = d["dataset"][self.feat]
+        d["X_valid"] = d["valiset"][self.feat]
+        d["X_test"]  = d["testset"][self.feat]
+        d["y_train"] = d["dataset"][self.target].values
+        d["y_valid"] = d["valiset"][self.target].values
+        d["y_test"]  = d["testset"][self.target].values
 
-        dataset = self.data.loc[begin_training:begin_valid,collst].dropna()
-        valiset = self.data.loc[begin_valid:begin_test,collst].dropna()
-        testset = self.data.loc[begin_test:,collst].dropna()
-        X_train = dataset[self.feat]
-        X_valid = valiset[self.feat]
-        X_test  = testset[self.feat]
-        y_train = dataset[self.target].values
-        y_valid = valiset[self.target].values
-        y_test  = testset[self.target].values
+        logging.debug(f'Training Dataset {d["dataset"].index.min()} {d["dataset"].index.max()}')
+        logging.debug(f'Validation Dataset {d["valiset"].index.min()} {d["valiset"].index.max()}')
+        logging.debug(f'Test Dataset {d["testset"].index.min()} {d["testset"].index.max()}')
 
-        logging.debug(f"Training Dataset {dataset.index.min()} {dataset.index.max()}")
-        logging.debug(f"Validation Dataset {valiset.index.min()} {valiset.index.max()}")
-        logging.debug(f"Test Dataset {testset.index.min()} {testset.index.max()}")
-
-        return y_train,y_valid,y_test,X_train,X_valid,X_test,dataset,valiset,testset
+        return d
 
     def split_datasets_byratio(
         self,split :list= [0.75,0.15,0.1]
     ):               
+        d = {}
         logging.info(f"Using Split: {split}")
         train_ratio = split[0]
         validation_ratio = split[1]
         test_ratio = split[2]
         # train is now 75% of the entire data set
         # the _junk suffix means that we drop that variable completely
-        X_train, _X, y_train, _y = train_test_split(self.data[self.feat], self.data[self.target], test_size=1 - train_ratio)
+        d["X_train"], _X, d["y_train"], _y = train_test_split(self.data[self.feat], self.data[self.target], test_size=1 - train_ratio)
         # test is now 10% of the initial data set
         # validation is now 15% of the initial data set
-        X_valid, X_test, y_valid, y_test = train_test_split(_X, _y, test_size=test_ratio/(test_ratio + validation_ratio)) 
-        dataset = pd.concat([X_train,y_train],axis=1)
-        valiset = pd.concat([X_valid,y_valid],axis=1)
-        testset = pd.concat([X_test,y_test],axis=1)
-        logging.debug(f"Training Dataset {dataset.shape}")
-        logging.debug(f"Validation Dataset {valiset.shape}")
-        logging.debug(f"Test Dataset {testset.shape}")
+        d["X_valid"], d["X_test"], d["y_valid"], d["y_test"] = train_test_split(_X, _y, test_size=test_ratio/(test_ratio + validation_ratio)) 
+        d["dataset"] = pd.concat([d["X_train"],d["y_train"]],axis=1)
+        d["valiset"] = pd.concat([d["X_valid"],d["y_valid"]],axis=1)
+        d["testset"] = pd.concat([d["X_test"],d["y_test"]],axis=1)
+        logging.debug(f'Training Dataset {d["dataset"].shape}')
+        logging.debug(f'Validation Dataset {d["valiset"].shape}')
+        logging.debug(f'Test Dataset {d["testset"] .shape}')
 
-        return y_train,y_valid,y_test,X_train,X_valid,X_test,dataset,valiset,testset
+        return d
 
     def mltrain_loop(
         self,
@@ -117,8 +118,7 @@ class Fitting():
         if 'split' in dir(self.config):
             split = self.config.split
             if type(split) == list:
-                y_train,y_valid,y_test,X_train,X_valid,X_test ,dataset,valiset,testset = \
-                self.split_datasets_byratio(split)
+                datasplit = self.split_datasets_byratio(split)
                 # Create pools for parallel execution
                 pool = ProcessPoolExecutor(self.config['parallel_threads'])
 
@@ -130,7 +130,7 @@ class Fitting():
                 trainingiterations = 1
                 total_models = len(mlist)*trainingiterations
                 for x in mlist:
-                    futures.append(pool.submit(self.mfit, x,models,"RatioSplit",X_train,y_train,X_valid,y_valid,X_test,y_test))
+                    futures.append(pool.submit(self.mfit, x,models,"RatioSplit",datasplit))
 
                 # This loop ensures that we wait until all models are fitted
                 for x in as_completed(futures):
@@ -163,8 +163,7 @@ class Fitting():
                 cnt_begins = 1
                 cnt_totals = 0
                 for begin_training in training_begins:           
-                    y_train,y_valid,y_test,X_train,X_valid,X_test ,dataset,valiset,testset = \
-                        self.split_datasets_byts(
+                    datasplit = self.split_datasets_byts(
                             begin_training = begin_training,
                             begin_valid = begin_valid,
                             begin_test = begin_test,
@@ -179,7 +178,7 @@ class Fitting():
                     cnt_models = 0
                     
                     for x in mlist:
-                        futures.append(pool.submit(self.mfit, x,models,trainingid,X_train,y_train,X_valid,y_valid,X_test,y_test))
+                        futures.append(pool.submit(self.mfit, x,models,trainingid,datasplit))
 
                     # This loop ensures that we wait until all models are fitted
                     for x in as_completed(futures):
@@ -197,8 +196,8 @@ class Fitting():
             logging.info("No splits defined use default split") 
         logging.info(f"Finished Model Fitting.")
 
-    def mfit(self,m,models,trainingid,X_train,y_train,X_valid,y_valid,X_test,y_test):
-
+    def mfit(self,m,models,trainingid,d):
+        
         # Specify Output filenames
         outpath = self.config.data.outpath
         modelpath = f"{outpath}/models"
@@ -221,10 +220,10 @@ class Fitting():
 
         if 'fit_params' in models[m].keys():
             fit_params = models[m]['fit_params']
-            fit_params['eval_set'] = [(X_valid,y_valid)]
-            model.fit(X_train,y_train,**fit_params)
+            fit_params['eval_set'] = [(d["X_valid"],d["y_valid"])]
+            model.fit(d["X_train"],d["y_train"],**fit_params)
         else:
-            model.fit(X_train,y_train)
+            model.fit(d["X_train"],d["y_train"])
         
         with open(model_fname, "wb") as dill_file:
             dill.dump(model, dill_file)
@@ -233,22 +232,22 @@ class Fitting():
         if self.config['modeltype'] == 'regression':
             results = pd.DataFrame(columns=pd.MultiIndex.from_product([[trainingid],['train', 'valid','test'], ['mean_squared_error']]))
 
-            results.loc[m,(trainingid,'train','mean_squared_error')]   = mean_squared_error(y_train,model.predict(X_train))
-            results.loc[m,(trainingid,'valid','mean_squared_error')]   = mean_squared_error(y_valid,model.predict(X_valid))
-            results.loc[m,(trainingid,'test','mean_squared_error')]   = mean_squared_error(y_test,model.predict(X_test))
+            results.loc[m,(trainingid,'train','mean_squared_error')]   = mean_squared_error(d["y_train"],model.predict(d["X_train"]))
+            results.loc[m,(trainingid,'valid','mean_squared_error')]   = mean_squared_error(d["y_valid"],model.predict(d["X_valid"]))
+            results.loc[m,(trainingid,'test','mean_squared_error')]   = mean_squared_error(d["y_test"],model.predict(d["X_test"]))
 
             results.to_csv(metric_fname)
         else:
             results = pd.DataFrame(columns=pd.MultiIndex.from_product([[trainingid],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
 
-            results.loc[m,(trainingid,'train','accuracy_score')]   = accuracy_score(y_train,model.predict(X_train))
-            results.loc[m,(trainingid,'train','roc_auc_score')]   = roc_auc_score(y_train,model.predict(X_train))
+            results.loc[m,(trainingid,'train','accuracy_score')]   = accuracy_score(d["y_train"],model.predict(d["X_train"]))
+            results.loc[m,(trainingid,'train','roc_auc_score')]   = roc_auc_score(d["y_train"],model.predict(d["X_train"]))
 
-            results.loc[m,(trainingid,'valid','accuracy_score')]   = accuracy_score(y_valid,model.predict(X_valid))
-            results.loc[m,(trainingid,'valid','roc_auc_score')]   = roc_auc_score(y_valid,model.predict(X_valid))
+            results.loc[m,(trainingid,'valid','accuracy_score')]   = accuracy_score(d["y_valid"],model.predict(d["X_valid"]))
+            results.loc[m,(trainingid,'valid','roc_auc_score')]   = roc_auc_score(d["y_valid"],model.predict(d["X_valid"]))
 
-            results.loc[m,(trainingid,'test','accuracy_score')]   = accuracy_score(y_test,model.predict(X_test))
-            results.loc[m,(trainingid,'test','roc_auc_score')]   = roc_auc_score(y_test,model.predict(X_test))
+            results.loc[m,(trainingid,'test','accuracy_score')]   = accuracy_score(d["y_test"],model.predict(d["X_test"]))
+            results.loc[m,(trainingid,'test','roc_auc_score')]   = roc_auc_score(d["y_test"],model.predict(d["X_test"]))
 
             results.to_csv(metric_fname)
         logging.debug(f"Model {m}: Metrics Calculated")
