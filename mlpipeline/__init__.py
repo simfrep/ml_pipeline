@@ -1,7 +1,6 @@
-from .binning import Binning
 from .fit import Fitting
 
-class MLPipeline(Binning, Fitting):
+class MLPipeline(Fitting):
 
     def __init__(
         self,
