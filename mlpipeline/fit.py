@@ -228,28 +228,23 @@ class Fitting():
         with open(model_fname, "wb") as dill_file:
             dill.dump(model, dill_file)
         logging.debug(f"Model {m}: Fitting ended")
+
+
+        results = pd.DataFrame(
+            index=pd.MultiIndex.from_product([[m],[trainingid],list(self.config.metrics.keys())]),
+            columns=['train', 'valid','test']
+            )
+        for metric in self.config.metrics.keys():
+            metricFunc = func_from_string(metric)
+
+            for ds in ['train','valid','test']:
+                idx = (m,trainingid,metric)
+                y = d[f"y_{ds}"]
+                y_pred = model.predict(d[f"X_{ds}"])
+                results.loc[idx,ds] = metricFunc(y,y_pred)
+            
+            results.to_csv(metric_fname)
         
-        if self.config['modeltype'] == 'regression':
-            results = pd.DataFrame(columns=pd.MultiIndex.from_product([[trainingid],['train', 'valid','test'], ['mean_squared_error']]))
-
-            results.loc[m,(trainingid,'train','mean_squared_error')]   = mean_squared_error(d["y_train"],model.predict(d["X_train"]))
-            results.loc[m,(trainingid,'valid','mean_squared_error')]   = mean_squared_error(d["y_valid"],model.predict(d["X_valid"]))
-            results.loc[m,(trainingid,'test','mean_squared_error')]   = mean_squared_error(d["y_test"],model.predict(d["X_test"]))
-
-            results.to_csv(metric_fname)
-        else:
-            results = pd.DataFrame(columns=pd.MultiIndex.from_product([[trainingid],['train', 'valid','test'], ['accuracy_score','roc_auc_score']]))
-
-            results.loc[m,(trainingid,'train','accuracy_score')]   = accuracy_score(d["y_train"],model.predict(d["X_train"]))
-            results.loc[m,(trainingid,'train','roc_auc_score')]   = roc_auc_score(d["y_train"],model.predict(d["X_train"]))
-
-            results.loc[m,(trainingid,'valid','accuracy_score')]   = accuracy_score(d["y_valid"],model.predict(d["X_valid"]))
-            results.loc[m,(trainingid,'valid','roc_auc_score')]   = roc_auc_score(d["y_valid"],model.predict(d["X_valid"]))
-
-            results.loc[m,(trainingid,'test','accuracy_score')]   = accuracy_score(d["y_test"],model.predict(d["X_test"]))
-            results.loc[m,(trainingid,'test','roc_auc_score')]   = roc_auc_score(d["y_test"],model.predict(d["X_test"]))
-
-            results.to_csv(metric_fname)
         logging.debug(f"Model {m}: Metrics Calculated")
 
         return f"Completed Model {m}"        
