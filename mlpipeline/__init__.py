@@ -2,8 +2,9 @@ import pandas as pd
 from munch import munchify
 
 from .fit import Fitting
+from .util import Util
 
-class MLPipeline(Fitting):
+class MLPipeline(Fitting, Util):
 
     def __init__(
         self,
