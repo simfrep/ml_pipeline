@@ -103,7 +103,6 @@ class Fitting():
 
     def mltrain_loop(
         self,
-        refit_models=False,
         **kwargs
     ):
 
@@ -120,7 +119,7 @@ class Fitting():
             if type(split) == list:
                 datasplit = self.split_datasets_byratio(split)
                 # Create pools for parallel execution
-                pool = ProcessPoolExecutor(self.config['parallel_threads'])
+                pool = ProcessPoolExecutor(self.config.runtime.parallel_threads)
 
                 # This list contains all functions that are executed
                 futures = []
@@ -171,7 +170,7 @@ class Fitting():
 
                     trainingid = begin_training.strftime("%Y%m%d")
                     # Create pools for parallel execution
-                    pool = ProcessPoolExecutor(self.config['parallel_threads'])
+                    pool = ProcessPoolExecutor(self.config.runtime.parallel_threads)
 
                     # This list contains all functions that are executed
                     futures = []
@@ -210,7 +209,7 @@ class Fitting():
         logging.debug(f"Model {m}: Starting")
 
         if os.path.isfile(model_fname):
-            if self.config['refit_models'] == False:
+            if self.config.runtime.refit == False:
                 return f"No refitting. Model {m} already exists. "
             logging.debug(f"Model {m}: Refit model")
         
