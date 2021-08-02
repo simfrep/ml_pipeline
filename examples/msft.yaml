@@ -25,9 +25,14 @@ split:
     offset_res: 'months'
 # split: [0.7,0.2,0.1]
 
-modeltype: classification
 refit_models: True
 parallel_threads: 8
+
+# Any metric function that takes 2 arguments like
+# fun(y,y_pred) and returns a float metric value
+metrics:
+  sklearn.metrics.accuracy_score:
+  sklearn.metrics.roc_auc_score:
 
 # Optionally Run this function in a pipeline before model is fit
 preprocessing: 
