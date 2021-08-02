@@ -30,7 +30,6 @@ refit_models: True
 parallel_threads: 8
 
 # Optionally Run this function in a pipeline before model is fit
-# If use_binning is True no preprocessing is done
 preprocessing: 
   sklearn.preprocessing.RobustScaler:
   #sklearn.preprocessing.StandardScaler:
