@@ -1,6 +1,3 @@
 mlpipeline/__pycache__/
 examples/.ipynb_checkpoints/
-examples/data/
-examples/metrics/
-examples/models/
-examples/plot_bins/
+examples/*/
