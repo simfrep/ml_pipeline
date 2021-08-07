@@ -2,7 +2,6 @@ import pandas as pd
 import os
 import dill
 import logging
-from sklearn.metrics import accuracy_score,roc_auc_score,mean_squared_error
 from sklearn.model_selection import ParameterGrid, train_test_split
 from sklearn.pipeline import Pipeline
 from concurrent.futures import ProcessPoolExecutor, as_completed
@@ -12,14 +11,9 @@ import random
 from .util import func_from_string
 
 
-class Fitting():
-
-    def __init__(
-        self,
-        config = None
-    ):
+class Fitting:
+    def __init__(self, config=None):
         self.config = config
-
 
     def model_config(self):
         m_dict = self.config["models"]
@@ -64,7 +58,7 @@ class Fitting():
                     for p in para_lst
                 }
                 models.update(_models)
-        
+
         return models
 
     def split_datasets_byts(
@@ -151,7 +145,7 @@ class Fitting():
                 cnt_totals = 0
                 cnt_models = 0
                 trainingiterations = 1
-                total_models = len(mlist)*trainingiterations
+                total_models = len(mlist) * trainingiterations
                 for x in mlist:
                     futures.append(
                         pool.submit(self.mfit, x, models, "RatioSplit")
@@ -162,29 +156,34 @@ class Fitting():
                     cnt_models += 1
                     cnt_totals += 1
                     logging.debug(x.result())
-                    logging.debug(f"{cnt_begins}/{trainingiterations} {cnt_models}/{len(mlist)} Completed Models")
+                    logging.debug(
+                        f"{cnt_begins}/{trainingiterations} {cnt_models}/{len(mlist)} Completed Models"
+                    )
                     if (cnt_models % 10 == 0) or (cnt_models == len(mlist)):
-                        logging.info(f"Finished {cnt_totals} of {total_models} model fittings (Training Begin {cnt_begins}/{trainingiterations} Model {cnt_models}/{len(mlist)})")
-            
-            elif 'time' in dir(split):
+                        logging.info(
+                            f"Finished {cnt_totals} of {total_models} model fittings (Training Begin {cnt_begins}/{trainingiterations} Model {cnt_models}/{len(mlist)})"
+                        )
+
+            elif "time" in dir(split):
                 time = split.time
                 begin = split.time.begin_training
                 logging.debug(f"Config begin_training: {begin} of type {type(begin)}")
                 if type(begin) == list:
                     training_begins = [pd.Timestamp(x) for x in begin]
                 else:
-                    offset_lst= time.offset_lst
-                    offset_res= time.offset_res
-                    training_begins = [pd.Timestamp(begin)+pd.DateOffset(**{offset_res: offset}) for offset in offset_lst]
+                    offset_lst = time.offset_lst
+                    offset_res = time.offset_res
+                    training_begins = [
+                        pd.Timestamp(begin) + pd.DateOffset(**{offset_res: offset})
+                        for offset in offset_lst
+                    ]
                 logging.debug(f"List of Training Begins: {training_begins}")
 
-                begin_valid     = pd.Timestamp(time.begin_valid)
-                begin_test      = pd.Timestamp(time.begin_test)
+                begin_valid = pd.Timestamp(time.begin_valid)
+                begin_test = pd.Timestamp(time.begin_test)
 
                 trainingiterations = len(training_begins)
-                total_models = len(mlist)*trainingiterations
-                logging.info(f"Fitting {len(mlist)} models for {trainingiterations} training datasets. Total: {total_models}")
-                logging.debug(f"List of models {mlist}")
+
                 cnt_begins = 1
                 cnt_totals = 0
                 for begin_training in training_begins:
@@ -210,7 +209,7 @@ class Fitting():
                     # This list contains all functions that are executed
                     futures = []
                     cnt_models = 0
-                    
+
                     for x in mlist:
                         futures.append(
                             pool.submit(self.mfit, x, models, trainingid)
@@ -221,15 +220,21 @@ class Fitting():
                         cnt_models += 1
                         cnt_totals += 1
                         logging.debug(x.result())
-                        logging.debug(f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Models")
+                        logging.debug(
+                            f"{cnt_begins}/{len(training_begins)} {cnt_models}/{len(mlist)} Completed Models"
+                        )
                         if (cnt_models % 10 == 0) or (cnt_models == len(mlist)):
-                            logging.info(f"Finished {cnt_totals} of {total_models} model fittings (Training Begin {cnt_begins}/{trainingiterations} Model {cnt_models}/{len(mlist)})")
-                    
+                            logging.info(
+                                f"Finished {cnt_totals} of {total_models} model fittings (Training Begin {cnt_begins}/{trainingiterations} Model {cnt_models}/{len(mlist)})"
+                            )
+
                     cnt_begins += 1
             else:
-                raise ValueError("self.config.split must be either list or split by times")        
+                raise ValueError(
+                    "self.config.split must be either list or split by times"
+                )
         else:
-            logging.info("No splits defined use default split") 
+            logging.info("No splits defined use default split")
         logging.info(f"Finished Model Fitting.")
 
     def mfit(self, m, models, trainingid):
@@ -249,10 +254,10 @@ class Fitting():
             if self.config.runtime.refit == False:
                 return f"No refitting. Model {m} already exists. "
             logging.debug(f"Model {m}: Refit model")
-        
+
         logging.debug(f"Model {m}: Fitting started")
 
-        model = models[m]['model']
+        model = models[m]["model"]
 
         if "fit_params" in models[m].keys():
             fit_params = models[m]["fit_params"]
@@ -265,11 +270,12 @@ class Fitting():
             dill.dump(model, dill_file)
         logging.debug(f"Model {m}: Fitting ended")
 
-
         results = pd.DataFrame(
-            index=pd.MultiIndex.from_product([[m],[trainingid],list(self.config.metrics.keys())]),
-            columns=['train', 'valid','test']
-            )
+            index=pd.MultiIndex.from_product(
+                [[m], [trainingid], list(self.config.metrics.keys())]
+            ),
+            columns=["train", "valid", "test"],
+        )
         for metric in self.config.metrics.keys():
             metricFunc = func_from_string(metric)
 
@@ -280,7 +286,7 @@ class Fitting():
                 results.loc[idx, ds] = metricFunc(y, y_pred)
 
             results.to_csv(metric_fname)
-        
+
         logging.debug(f"Model {m}: Metrics Calculated")
 
-        return f"Completed Model {m}"        
+        return f"Completed Model {m}"
