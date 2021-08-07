@@ -1,0 +1,20 @@
+name: mlpipeline
+
+dependencies:
+  - python=3.9
+  - numpy
+  - matplotlib
+  - pandas
+  - pip
+  - pyyaml
+  - joblib
+  - pip:
+    - simfin
+    - scorecardpy
+    - scikit-learn
+    - jupyterlab
+    - fastparquet
+    - quantstats
+    - optbinning
+    - munch
+    - black

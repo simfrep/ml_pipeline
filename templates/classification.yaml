@@ -1,0 +1,80 @@
+data: # Setup input file and paths for input location and outputs
+  inpfile: file.parq # Currently only parquet files supported
+  inppath: data
+  outpath: out
+
+runtime: 
+  refit: True # If false do not fit models if output file exists
+  parallel_threads: 8 # parralel fitted models
+
+variables:
+  target: target # prediction target
+  bads: [target] # variables in input data that should not be used as predictors
+  price_open: # used in plotting functions in trading example
+  price_close: # used in plotting functions in trading example
+
+# How to split train / valid / test
+split: [0.7,0.2,0.1]
+
+# Any metric function that takes 2 arguments like
+# func(y,y_pred) and returns a float metric value
+metrics:
+  sklearn.metrics.accuracy_score:
+  sklearn.metrics.balanced_accuracy_score:
+  sklearn.metrics.roc_auc_score:
+  sklearn.metrics.log_loss:
+  sklearn.metrics.average_precision_score:
+
+# Optionally Run this function in a pipeline before model is fit
+preprocessing: 
+  mlpipeline.preprocessing.WoeBinning:
+    args: ['X_train','y_train']
+  sklearn.preprocessing.RobustScaler:
+  sklearn.preprocessing.StandardScaler:
+  optbinning.BinningProcess:
+    args: [feat]
+  sklearn.preprocessing.PowerTransformer:
+    kwargs:
+      method: yeo-johnson
+
+# model to create prediction. need to be sklearn wrapper
+models:
+  sklearn.tree.DecisionTreeClassifier:
+    criterion: ['gini']
+    max_depth: [2,6,6,8,10]
+  sklearn.ensemble.RandomForestClassifier:
+    n_estimators: [500]  # [250,500,750,1000] 
+    max_depth: [2,6,6,8,10]
+  sklearn.linear_model.LogisticRegression:
+    solver: ['saga']
+    penalty: ['l1', 'l2']
+    max_iter: [1000]
+  sklearn.linear_model.LogisticRegression:
+    solver: ['saga']
+    penalty: ['elasticnet']
+    l1_ratio: [0,0.5,1]    
+    max_iter: [1000]
+  sklearn.linear_model.RidgeClassifier:
+    alpha: [1,2,3,5,8]
+  sklearn.linear_model.PassiveAggressiveClassifier:
+    C: [1,2,3,5,8]       
+  sklearn.neural_network.MLPClassifier:
+    activation: ['logistic'] #['identity','logistic','tanh','relu']
+    solver: ['adam'] #['sgd','adam']
+    alpha: [0.0001] # [0.01, 0.0001]
+    learning_rate: ['constant'] #['constant', 'invscaling', 'adaptive']
+    max_iter: [1000]
+    hidden_layer_sizes:  
+        [ 
+          !!python/tuple [90,10], 
+          !!python/tuple [80,20], 
+          !!python/tuple [70,30], 
+          !!python/tuple [60,40], 
+          !!python/tuple [50,50]
+        ]
+  sklearn.svm.SVC:
+    probability: [True]
+    C: [0.5,1]
+    kernel: ['linear', 'poly', 'rbf', 'sigmoid']
+    gamma: ['scale', 'auto']
+    
