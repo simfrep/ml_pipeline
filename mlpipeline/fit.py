@@ -22,30 +22,47 @@ class Fitting():
 
 
     def model_config(self):
-        m_dict=self.config['models']
-        if 'preprocessing' in self.config.keys():
-            preprocessing = self.config['preprocessing']
+        m_dict = self.config["models"]
+        if "preprocessing" in self.config.keys():
+            prep = self.config["preprocessing"]
 
         models = {}
 
-        for trans in preprocessing.keys():
-            trans_func = func_from_string(trans)
-            for key in m_dict.keys():
-                para_lst = list(ParameterGrid(m_dict[key]))
-                model_func = func_from_string(key)
+        for trans in prep.keys():
+            trans_args = tuple()
+            trans_kwargs = {}
+            tf_has_args = False
+            tf_has_kwargs = False
 
-                if trans_func.__name__ == 'BinningProcess':
-                    _models = {
-                        f"{trans_func.__name__}_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
-                            {'model':Pipeline([('transformation',trans_func(self.feat)),('model',model_func(**p))])} 
-                        for p in para_lst  
-                        }
-                else:                    
-                    _models = {
-                        f"{trans_func.__name__}_{model_func.__name__}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}":
-                            {'model':Pipeline([('transformation',trans_func()),('model',model_func(**p))])} 
-                        for p in para_lst  
-                        }
+            logging.info(f"{trans}")
+            transFunc = func_from_string(trans)
+
+            if prep[trans] is not None:
+                tf_has_args = "args" in prep[trans].keys()
+                tf_has_kwargs = "kwargs" in prep[trans].keys()
+
+            if tf_has_args:
+                trans_args = tuple([getattr(self, x) for x in prep[trans].args])
+                logging.info(f"trans_args: {trans_args}")
+
+            if tf_has_kwargs:
+                trans_kwargs = prep[trans].kwargs
+                logging.info(f"trans_kwargs: {trans_kwargs}")
+
+            for model in m_dict.keys():
+                para_lst = list(ParameterGrid(m_dict[model]))
+                modelFunc = func_from_string(model)
+
+                mname = f"{transFunc.__name__}_{modelFunc.__name__}"
+                _models = {
+                    f"{mname}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}": {
+                        "model": Pipeline([
+                            ("transformation",transFunc(*trans_args, **trans_kwargs),),
+                            ("model", modelFunc(**p)),
+                        ])
+                    }
+                    for p in para_lst
+                }
                 models.update(_models)
         
         return models
