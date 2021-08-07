@@ -52,35 +52,40 @@ class Fitting():
 
     def split_datasets_byts(
         self,
-        begin_training = pd.Timestamp("2015-01-01 00:00"),
-        begin_valid = pd.Timestamp("2020-01-01 00:00"),
-        begin_test = pd.Timestamp("2020-04-01 00:00"),
+        begin_training=pd.Timestamp("2015-01-01 00:00"),
+        begin_valid=pd.Timestamp("2020-01-01 00:00"),
+        begin_test=pd.Timestamp("2020-04-01 00:00"),
     ):
         """
-            Creates and returns all necessary Datasets for normal modellung and DMatrix elements for XGB
-        """   
+        Creates and returns all necessary Datasets for normal modellung and DMatrix elements for XGB
+        """
 
-        collst =self.feat+[self.target]
+        collst = self.feat + [self.target]
         d = {}
-        d["dataset"] = self.data.loc[begin_training:begin_valid,collst].dropna()
-        d["valiset"] = self.data.loc[begin_valid:begin_test,collst].dropna()
-        d["testset"] = self.data.loc[begin_test:,collst].dropna()
+        d["dataset"] = self.data.loc[begin_training:begin_valid, collst].dropna()
+        d["valiset"] = self.data.loc[begin_valid:begin_test, collst].dropna()
+        d["testset"] = self.data.loc[begin_test:, collst].dropna()
         d["X_train"] = d["dataset"][self.feat]
         d["X_valid"] = d["valiset"][self.feat]
-        d["X_test"]  = d["testset"][self.feat]
+        d["X_test"] = d["testset"][self.feat]
         d["y_train"] = d["dataset"][self.target].values
         d["y_valid"] = d["valiset"][self.target].values
-        d["y_test"]  = d["testset"][self.target].values
+        d["y_test"] = d["testset"][self.target].values
 
-        logging.debug(f'Training Dataset {d["dataset"].index.min()} {d["dataset"].index.max()}')
-        logging.debug(f'Validation Dataset {d["valiset"].index.min()} {d["valiset"].index.max()}')
-        logging.debug(f'Test Dataset {d["testset"].index.min()} {d["testset"].index.max()}')
+        logging.debug(
+            f'Training Dataset {d["dataset"].index.min()} {d["dataset"].index.max()}'
+        )
+        logging.debug(
+            f'Validation Dataset {d["valiset"].index.min()} {d["valiset"].index.max()}'
+        )
+        logging.debug(
+            f'Test Dataset {d["testset"].index.min()} {d["testset"].index.max()}'
+        )
 
-        return d
+        for key, value in d.items():
+            setattr(self, key, value)
 
-    def split_datasets_byratio(
-        self,split :list= [0.75,0.15,0.1]
-    ):               
+    def split_datasets_byratio(self, split: list = [0.75, 0.15, 0.1]):
         d = {}
         logging.info(f"Using Split: {split}")
         train_ratio = split[0]
@@ -88,36 +93,38 @@ class Fitting():
         test_ratio = split[2]
         # train is now 75% of the entire data set
         # the _junk suffix means that we drop that variable completely
-        d["X_train"], _X, d["y_train"], _y = train_test_split(self.data[self.feat], self.data[self.target], test_size=1 - train_ratio)
+        d["X_train"], _X, d["y_train"], _y = train_test_split(
+            self.data[self.feat], self.data[self.target], test_size=1 - train_ratio
+        )
         # test is now 10% of the initial data set
         # validation is now 15% of the initial data set
-        d["X_valid"], d["X_test"], d["y_valid"], d["y_test"] = train_test_split(_X, _y, test_size=test_ratio/(test_ratio + validation_ratio)) 
-        d["dataset"] = pd.concat([d["X_train"],d["y_train"]],axis=1)
-        d["valiset"] = pd.concat([d["X_valid"],d["y_valid"]],axis=1)
-        d["testset"] = pd.concat([d["X_test"],d["y_test"]],axis=1)
+        d["X_valid"], d["X_test"], d["y_valid"], d["y_test"] = train_test_split(
+            _X, _y, test_size=test_ratio / (test_ratio + validation_ratio)
+        )
+        d["dataset"] = pd.concat([d["X_train"], d["y_train"]], axis=1)
+        d["valiset"] = pd.concat([d["X_valid"], d["y_valid"]], axis=1)
+        d["testset"] = pd.concat([d["X_test"], d["y_test"]], axis=1)
         logging.debug(f'Training Dataset {d["dataset"].shape}')
         logging.debug(f'Validation Dataset {d["valiset"].shape}')
         logging.debug(f'Test Dataset {d["testset"] .shape}')
 
-        return d
+        for key, value in d.items():
+            setattr(self, key, value)
 
-    def mltrain_loop(
-        self,
-        **kwargs
-    ):
-
-        models = self.model_config()
-        mlist = list(models.keys())   
-        random.shuffle(mlist)
+    def mltrain_loop(self, **kwargs):
 
         logging.debug(self.config)
         logging.debug(self.config.keys())
 
-
-        if 'split' in dir(self.config):
+        if "split" in dir(self.config):
             split = self.config.split
             if type(split) == list:
-                datasplit = self.split_datasets_byratio(split)
+                self.split_datasets_byratio(split)
+
+                models = self.model_config()
+                mlist = list(models.keys())
+                random.shuffle(mlist)
+
                 # Create pools for parallel execution
                 pool = ProcessPoolExecutor(self.config.runtime.parallel_threads)
 
@@ -129,7 +136,9 @@ class Fitting():
                 trainingiterations = 1
                 total_models = len(mlist)*trainingiterations
                 for x in mlist:
-                    futures.append(pool.submit(self.mfit, x,models,"RatioSplit",datasplit))
+                    futures.append(
+                        pool.submit(self.mfit, x, models, "RatioSplit")
+                    )
 
                 # This loop ensures that we wait until all models are fitted
                 for x in as_completed(futures):
@@ -161,12 +170,21 @@ class Fitting():
                 logging.debug(f"List of models {mlist}")
                 cnt_begins = 1
                 cnt_totals = 0
-                for begin_training in training_begins:           
-                    datasplit = self.split_datasets_byts(
-                            begin_training = begin_training,
-                            begin_valid = begin_valid,
-                            begin_test = begin_test,
-                            )
+                for begin_training in training_begins:
+                    self.split_datasets_byts(
+                        begin_training=begin_training,
+                        begin_valid=begin_valid,
+                        begin_test=begin_test,
+                    )
+                    models = self.model_config()
+                    mlist = list(models.keys())
+                    random.shuffle(mlist)
+
+                    total_models = len(mlist) * trainingiterations
+                    logging.info(
+                        f"Fitting {len(mlist)} models for {trainingiterations} training datasets. Total: {total_models}"
+                    )
+                    logging.debug(f"List of models {mlist}")
 
                     trainingid = begin_training.strftime("%Y%m%d")
                     # Create pools for parallel execution
@@ -177,7 +195,9 @@ class Fitting():
                     cnt_models = 0
                     
                     for x in mlist:
-                        futures.append(pool.submit(self.mfit, x,models,trainingid,datasplit))
+                        futures.append(
+                            pool.submit(self.mfit, x, models, trainingid)
+                        )
 
                     # This loop ensures that we wait until all models are fitted
                     for x in as_completed(futures):
@@ -195,8 +215,8 @@ class Fitting():
             logging.info("No splits defined use default split") 
         logging.info(f"Finished Model Fitting.")
 
-    def mfit(self,m,models,trainingid,d):
-        
+    def mfit(self, m, models, trainingid):
+
         # Specify Output filenames
         outpath = self.config.data.outpath
         modelpath = f"{outpath}/models"
@@ -217,13 +237,13 @@ class Fitting():
 
         model = models[m]['model']
 
-        if 'fit_params' in models[m].keys():
-            fit_params = models[m]['fit_params']
-            fit_params['eval_set'] = [(d["X_valid"],d["y_valid"])]
-            model.fit(d["X_train"],d["y_train"],**fit_params)
+        if "fit_params" in models[m].keys():
+            fit_params = models[m]["fit_params"]
+            fit_params["eval_set"] = [(self.X_valid,self.y_valid)]
+            model.fit(self.X_train, self.y_train, **fit_params)
         else:
-            model.fit(d["X_train"],d["y_train"])
-        
+            model.fit(self.X_train, self.y_train)
+
         with open(model_fname, "wb") as dill_file:
             dill.dump(model, dill_file)
         logging.debug(f"Model {m}: Fitting ended")
@@ -236,12 +256,12 @@ class Fitting():
         for metric in self.config.metrics.keys():
             metricFunc = func_from_string(metric)
 
-            for ds in ['train','valid','test']:
-                idx = (m,trainingid,metric)
-                y = d[f"y_{ds}"]
-                y_pred = model.predict(d[f"X_{ds}"])
-                results.loc[idx,ds] = metricFunc(y,y_pred)
-            
+            for ds in ["train", "valid", "test"]:
+                idx = (m, trainingid, metric)
+                y = getattr(self,f"y_{ds}")
+                y_pred = model.predict(getattr(self,f"X_{ds}"))
+                results.loc[idx, ds] = metricFunc(y, y_pred)
+
             results.to_csv(metric_fname)
         
         logging.debug(f"Model {m}: Metrics Calculated")
