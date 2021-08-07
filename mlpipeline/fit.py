@@ -7,6 +7,7 @@ from sklearn.pipeline import Pipeline
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from pathlib import Path
 import random
+from itertools import product
 
 from .util import func_from_string
 
@@ -22,42 +23,42 @@ class Fitting:
 
         models = {}
 
-        for trans in prep.keys():
-            trans_args = tuple()
-            trans_kwargs = {}
+        for (tf,model) in product(prep.keys(), m_dict.keys()):
+            logging.debug(f"tf: {tf}")
+            logging.debug(f"model: {model}")
+
+            tfFunc = func_from_string(tf)
+            modelFunc = func_from_string(model)
+            modelParam = ParameterGrid(m_dict[model])
+
+            tfArgs = tuple()
+            tfKwargs = {}
             tf_has_args = False
             tf_has_kwargs = False
 
-            logging.info(f"{trans}")
-            transFunc = func_from_string(trans)
-
-            if prep[trans] is not None:
-                tf_has_args = "args" in prep[trans].keys()
-                tf_has_kwargs = "kwargs" in prep[trans].keys()
+            if prep[tf] is not None:
+                tf_has_args = "args" in prep[tf].keys()
+                tf_has_kwargs = "kwargs" in prep[tf].keys()
 
             if tf_has_args:
-                trans_args = tuple([getattr(self, x) for x in prep[trans].args])
-                logging.info(f"trans_args: {trans_args}")
+                tfArgs = tuple([getattr(self, x) for x in prep[tf].args])
+                logging.info(f"tfArgs: {tfArgs}")
 
             if tf_has_kwargs:
-                trans_kwargs = prep[trans].kwargs
-                logging.info(f"trans_kwargs: {trans_kwargs}")
+                tfKwargs = prep[tf].kwargs
+                logging.info(f"tfKwargs: {tfKwargs}")
 
-            for model in m_dict.keys():
-                para_lst = list(ParameterGrid(m_dict[model]))
-                modelFunc = func_from_string(model)
-
-                mname = f"{transFunc.__name__}_{modelFunc.__name__}"
-                _models = {
-                    f"{mname}_{'_'.join([f'{x}{y}' for (x,y) in list(p.items())])}": {
-                        "model": Pipeline([
-                            ("transformation",transFunc(*trans_args, **trans_kwargs),),
-                            ("model", modelFunc(**p)),
-                        ])
-                    }
-                    for p in para_lst
+            mname = f"{tfFunc.__name__}_{modelFunc.__name__}"
+            _models = {
+                f"{mname}_{'_'.join([f'{x}{y}' for (x,y) in p.items()])}": {
+                    "model": Pipeline([
+                        ("transformation",tfFunc(*tfArgs, **tfKwargs),),
+                        ("model", modelFunc(**p)),
+                    ])
                 }
-                models.update(_models)
+                for p in modelParam
+            }
+            models.update(_models)
 
         return models
 
@@ -122,7 +123,7 @@ class Fitting:
         for key, value in d.items():
             setattr(self, key, value)
 
-    def mltrain_loop(self, **kwargs):
+    def mltrain_loop(self):
 
         logging.debug(self.config)
         logging.debug(self.config.keys())
