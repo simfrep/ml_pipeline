@@ -24,4 +24,4 @@ class MLPipeline(Fitting):
 
     def get_data(self):
         datafile = f"{self.config.data.inppath}/{self.config.data.inpfile}"
-        return pd.read_parquet(datafile)
+        return pd.read_parquet(datafile).dropna()
