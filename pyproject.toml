@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+[tool.setuptools]
+packages = ["mlpipeline"]
+
+[project]
+name = "mlpipeline"
+description = "ml pipeline"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = [
+    "munch",
+    "dill",
+    "pandas",
+    "scikit-learn",
+]
+dynamic = ["version"]
